@@ -139,6 +139,7 @@
                 margin: 0.2rem;
                 display: flex;
                 flex-direction: row;
+                border-right: 0.2rem solid darkblue;
             }
             .message-body {
                 display: flex;
@@ -238,7 +239,7 @@
                 console.log('Fetching more replies, offset: ' + offset)
                 //TODO Replace logic with backend call to fetch replies
                 for(i = offset; i < 20+offset; i++) {
-                    appendReplyToScroller(i, Math.round(Math.random() * (100)), Math.round(Math.random() * (100000000)),'Lorem ipsum doloret'+i, "U")
+                    appendReplyToScroller(i, Math.round(Math.random() * (100)), Math.round(Math.random() * (100000000)), Math.round(Math.random() * (100000000)), 'Lorem ipsum doloret'+i, "U")
                 }
             }
             //Same for message
@@ -268,14 +269,15 @@
                 //for(i=0; i<999000000; i++);
                 //TODO Send backend request to post a reply
                 let _id = Math.round(Math.random() * (10000000))
+                let _timestamp = Math.round(Math.random() * (10000000))
                 let _upvoteCount = Math.round(Math.random() * (50 - 10) + 10)
                 let _user = userID
                 let _content = content
                 let _status = "U"
-                callback(_id, _upvoteCount, _user, _content, _status)
+                callback(_id, _upvoteCount, _user, _timestamp, _content, _status)
             }
 
-            function appendReplyToScroller(id, upvoteCount, user, content, status, by_user){
+            function appendReplyToScroller(id, upvoteCount, user, timestamp, content, status, by_user){
                 if(by_user==undefined || by_user==null)
                     by_user = false
                 var _upvoteOpacity = 0.3
@@ -291,7 +293,7 @@
                                         <span class="glyphicon icon-downvote" style="opacity:${_downvoteOpacity};" onClick="downvoteReply('${id}')">⬇️</span>
                                     </div>
                                     <div class="reply-body">
-                                        <span class="reply-header-poster">Reply by ${user}</span>
+                                        <span class="reply-header-poster">Reply by ${user} @ ${timestamp}</span>
                                         <div class="reply-content">${content}</div>
                                     </div>
                                 </div>`
@@ -462,14 +464,14 @@
                 } else {
                     document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader')
                     document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader')
-                    backend_postReply(userID, content, (id, upvoteCount, user, content, status) => {
+                    backend_postReply(userID, content, (id, upvoteCount, user, timestamp, content, status) => {
                         document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader');
                         document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader');
                         document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].value='';
                         document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].value='';
                         var postCommentCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-footer-commentcount')[0].innerHTML)
                         document.getElementsByClassName('message-footer-commentcount')[0].innerHTML = postCommentCount+1
-                        appendReplyToScroller(id, upvoteCount, user, content, status, true)
+                        appendReplyToScroller(id, upvoteCount, user, timestamp, content, status, true)
                     })
                 }
             }
@@ -484,8 +486,8 @@
                 <span class="message-header-title">${title}</span>
                 <div class="message-content">${content}</div>
                 <div class="message-footer">
-                    <a style="padding-right:1rem" href="#reply" onclick="toggleEditor()">Reply (<span class="message-footer-commentcount">${commentCount}</span> comments</a>
-                    <span class="message-header-poster">Posted by ${user}</span>
+                    <a style="padding-right:1rem" href="#${id}" onclick="toggleEditor()">Reply (<span class="message-footer-commentcount">${commentCount}</span> comments</a>
+                    <span class="message-header-poster">Posted by ${user} @ ${timestamp}</span>
                 </div>
             </div>
         </div>`*/
@@ -503,8 +505,8 @@
                 <span class="message-header-title">Very dumb title</span>
                 <div class="message-content">Very dumb opinion that nobody cares</div>
                 <div class="message-footer">
-                    <a style="padding-right:1rem" href="#reply" onclick="toggleEditor()">Reply (<span class="message-footer-commentcount">0</span> comments)</a>
-                    <span class="message-header-poster">Posted by neckbeard probably</span>
+                    <a style="padding-right:1rem" href="#{ff}" onclick="toggleEditor()">Reply (<span class="message-footer-commentcount">0</span> comments)</a>
+                    <span class="message-header-poster">Posted by neckbeard probably @ 20:42, Tuesday, 27/07/2012</span>
                 </div>
             </div>
         </div>

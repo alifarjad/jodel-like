@@ -213,10 +213,11 @@
                 let _upvoteCount = Math.round(Math.random() * (50 - 10) + 10)
                 let _title = title
                 let _user = userID
+                let _timestamp = Math.round(Math.random() * (10000000 - 5) + 5)
                 let _content = content
                 let _commentCount = Math.round(Math.random() * (20 - 5) + 10)
                 let _status = "U"
-                callback(_id, _upvoteCount, _title, _user, _content, _commentCount, _status)
+                callback(_id, _upvoteCount, _title, _user, _timestamp, _content, _commentCount, _status)
             }
 
             function backend_fetch_messages(offset) {
@@ -226,7 +227,7 @@
                 console.log('Fetching more messages, offset: ' + offset)
                 //TODO Replace logic with backend call to fetch messages
                 for(i = offset; i < 20+offset; i++) {
-                    appendMessageToScroller(i, Math.round(Math.random() * (100)), 'Title ' + i, Math.round(Math.random() * (100000000)), 'Lorem ipsum doloret'+i, Math.round(Math.random() * (10)), "U")
+                    appendMessageToScroller(i, Math.round(Math.random() * (100)), 'Title ' + i, Math.round(Math.random() * (100000000)), Math.round(Math.random() * (100000000)), 'Lorem ipsum doloret'+i, Math.round(Math.random() * (10)), "U")
                 }
             }
             
@@ -298,7 +299,7 @@
                     console.warn('Upvote case that is not handled upvoteOpacity ' + upvoteOpacity + ' downvoteOpacity ' + downvoteOpacity)
                 }
             }
-            function appendMessageToScroller(id, upvoteCount, title, user, content, commentCount, status, by_user){
+            function appendMessageToScroller(id, upvoteCount, title, user, timestamp, content, commentCount, status, by_user){
                 if(by_user==undefined || by_user==null)
                     by_user = false
                 var _upvoteOpacity = 0.3
@@ -319,7 +320,7 @@
                                         <div class="message-footer">
                                             <a style="padding-right:1rem" href="./threads/${id}">Reply (<span class="message-footer-commentcount">${commentCount}</span> comments)</a>
                                             <a href="./threads/${id}">View thread</a>
-                                            <span class="message-header-poster">Posted by ${user}</span>
+                                            <span class="message-header-poster">Posted by ${user} @ ${timestamp}</span>
                                         </div>
                                     </div>
                                 </div>`
@@ -351,14 +352,14 @@
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('title')[0].classList.toggle('loader')
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader')
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader')
-                    backend_postmessage(userID, title, content, (id, upvoteCount, title, user, content, commentCount, status) => {
+                    backend_postmessage(userID, title, content, (id, upvoteCount, title, user, timestamp, content, commentCount, status) => {
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('title')[0].classList.toggle('loader');
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader');
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader');
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('title')[0].value='';
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('content')[0].value='';
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('submit-button')[0].value='';
-                        appendMessageToScroller(id, upvoteCount, title, user, content, commentCount, status, true)
+                        appendMessageToScroller(id, upvoteCount, title, user, timestamp, content, commentCount, status, true)
                     })
                 }
             }

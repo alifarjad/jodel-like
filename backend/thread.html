@@ -1,0 +1,740 @@
+<html>
+    <head>
+        <style>
+            /*To remove outline from textareas*/
+            html {
+                background-color: #abe2ce;
+            }
+            .loader {
+                -webkit-animation: spin 0.5s linear infinite; /* Safari */
+                animation: spin 0.5s linear infinite;
+            }
+            /* Safari */
+            @-webkit-keyframes spin {
+            0% { -webkit-transform:rotateY()(0deg); }
+            100% { -webkit-transform: rotateY(360deg); }
+            }
+
+            @keyframes spin {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(360deg); }
+            }
+            textarea:hover, 
+            input:hover, 
+            textarea:active, 
+            input:active, 
+            textarea:focus, 
+            input:focus,
+            button:focus,
+            button:active,
+            button:hover,
+            label:focus,
+            .btn:active,
+            .btn.active
+            {
+                outline:0px !important;
+                -webkit-appearance:none;
+                box-shadow: none !important;
+            }
+            textarea.content {
+                padding: 0.25rem;
+                width: 100%;
+                height: 15rem;
+                box-sizing: content-box;
+                border: 0px;
+                border-radius: 0.2rem;
+                background-color: #d2ddd9;
+                font-size: 1rem;
+                resize: none;
+                margin-bottom: 0.2rem;
+                scrollbar-width: none;
+                -webkit-appearance:none;
+            }
+            textarea.title {
+                padding: 0.125rem;
+                width: 100%;
+                height: 2rem;
+                box-sizing: content-box;
+                border: 0px;
+                border-radius: 0.2rem;
+                background-color: #d2ddd9;;
+                font-size: 1.25rem;
+                resize: none;
+                white-space: nowrap;
+                margin-bottom: 0.1rem;
+                scrollbar-width: none;
+                -webkit-appearance:none;
+            }
+
+            button {
+                padding: 0.5rem 1rem 0.5rem 1rem;
+                font-size: 1rem;
+                text-align: center;
+                cursor: pointer;
+                outline: none;
+                color: #fff;
+                background-color: #04AA6D;
+                border: none;
+                border-radius: 0.3rem;
+                margin: 0rem;
+            }
+
+            button:hover {
+                background-color: #3e8e41;
+            }
+
+            button:active {
+            background-color: #3e8e41;
+            transform: translateY(0.2rem);
+            }
+
+            .reply-editor { 
+                margin: 0.2rem;
+            }
+            .reply { 
+                background-color: powderblue;
+                margin: 0.2rem;
+                margin-left: 6rem;
+                display: flex;
+                flex-direction: row;
+                border-left: 0.2rem solid darkblue;
+                border-right: 0.2rem solid darkblue;
+
+            }
+            .replies-scroller {
+                display: flex;
+                flex-direction: column;
+            }
+            .reply-body {
+                padding: 1rem;
+            }
+            .reply-header {
+                font-size: 1.5rem;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            .reply-content {
+                font-size: 1.25rem;
+                padding: 1rem;
+            }
+            .reply-header-poster {
+                padding-left: 1rem;
+                font-size: 1rem;
+                color: darkslategrey;
+                align-self: center;
+            }
+            .reply-header-upvotes {
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+                align-self: center;
+            }
+            .message-editor { 
+                margin: 0.2rem;
+            }
+            .message { 
+                background-color: powderblue;
+                margin: 0.2rem;
+                display: flex;
+                flex-direction: row;
+                border-right: 0.2rem solid darkblue;
+            }
+            .message-body {
+                display: flex;
+                flex-direction: column;
+            }
+            .messages-scroller {
+                display: flex;
+                flex-direction: column;
+            }
+            .message-header {
+                font-size: 2rem;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                border-bottom: 0.2rem solid darkblue;
+                border-left: 0.2rem solid darkblue;
+            }
+            .message-content {
+                font-size: 1.25rem;
+                padding: 1rem;
+            }
+            .message-footer {
+                font-size: 1rem;
+                padding: 1rem;
+                display: flex;
+                flex-direction: row;
+            }
+            .message-header-title {
+                font-size: 2rem;
+                padding: 1rem;
+                padding-bottom: 0.1rem;
+                border-bottom: 2px inset darkblue;
+            }
+            .message-header-poster {
+                padding-left: 1rem;
+                font-size: 1rem;
+                color: darkslategrey;
+            }
+            .message-header-upvotes {
+                padding-bottom: 0.5rem;
+                padding-top: 0.5rem;
+                align-self: center;
+            }
+            .message-footer-commentcount {
+                font-size: 1rem;
+                align-self: center;
+            }
+            .icon-upvote {
+                opacity: 0.3;
+            }
+            .icon-downvote {
+                opacity: 0.3;
+            }
+            .glyphicon {
+                opacity: 0.3;
+                transition: opacity .15s ease-in-out;
+                -moz-transition: opacity .15s ease-in-out;
+                -webkit-transition: opacity .15s ease-in-out;
+                align-self: center;
+            }
+            .glyphicon:hover {
+                opacity: 0.75;
+                cursor: pointer;
+            }
+
+        </style>
+        <script>
+
+            const polling_wait = 10000
+            var current_offset = 0;
+
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+            }
+
+            //BACKEND CALLS
+            function backend_fetch_message(id, callback) {
+                console.log('MOCKBACKEND: ' + id + ' fetching main message')
+                /*
+                {
+                    "id": 1,
+                    "title": "Example title 1",
+                    "content": "Example content 1",
+                    "commentCount": 52,
+                    "upvoteCount": 24,
+                    "user_id": "123456",
+                    "createdAt": "2022-12-10T22:11:02.736Z",
+                    "updatedAt": "2022-12-10T22:11:02.736Z",
+                    "message_votes": [
+                        {
+                            "id": 1,
+                            "status": "D",
+                            "user_id": "24859897770359796",
+                            "createdAt": "2022-12-10T22:11:10.612Z",
+                            "updatedAt": "2022-12-10T22:11:10.612Z",
+                            "messageId": 1
+                        }
+                    ]
+                }
+                */
+                fetch('/api/messages/'+id, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - fetched main message successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        console.log("Message votes: " + data['message_votes'])
+                        callback({ 'id': data['id'], 'upvoteCount': data['upvoteCount'], 'title': data['title'], 'user': data['user_id'], 'timestamp': data['createdAt'], 'content': data['content'], 'commentCount': data['commentCount'], 'status': data['message_votes'].length>0?data['message_votes'][0]["status"]:"N"})
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_incrementReplyUpvotes(id) {
+                fetch('/api/replies/'+id+'/upvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - incremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_decrementReplyUpvotes(id) {
+                fetch('/api/replies/'+id+'/downvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - decremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_neutralReplyUpvotes(id) {
+                fetch('/api/replies/'+id+'/neutralize', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - neutralized upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_getReplyDynamicData(id) {
+                //TODO Send backend request for reply dynamic data
+                console.log('BACKEND: ' + id + ' - fetching reply dynamic data')
+                let __votecount = 0
+                let __commentcount = 0
+                fetch('/api/replies/'+id, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - fetched dynamic data')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = Number(data['upvoteCount'])
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_fetch_replies(offset) {
+                if(offset==null && offset==undefined) {
+                    console.log('Warning ' + current_offset)
+                    offset=0
+                }
+                console.log('Fetching more replies, offset: ' + offset)
+                fetch('/api/messages/'+@@@@@@+'/replies?offset='+offset, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: fetched messages')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        current_offset = data['newOffset']
+                       for(let i = 0; i < data['replies'].length; i++) {
+                            appendReplyToScroller(data['replies'][i]['id'],
+                                                    data['replies'][i]['upvoteCount'],
+                                                    data['replies'][i]['user_id']==getCookie('userID')?data['replies'][i]['user_id']+' (You)':data['replies'][i]['user_id'],
+                                                    data['replies'][i]['createdAt'],
+                                                    data['replies'][i]['content'],
+                                                    data['replies'][i]['reply_votes'].length>0?data['replies'][i]['reply_votes'][0]["status"]:"N")
+                       }
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_incrementUpvotes(id) {
+                fetch('/api/messages/'+id+'/upvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - incremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_decrementUpvotes(id) {
+                fetch('/api/messages/'+id+'/downvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - decremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_neutralupvotes(id) {
+                fetch('/api/messages/'+id+'/neutralize', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - neutralized upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+            function backend_getdynamicdata(id) {
+                let __votecount = 0
+                let __commentcount = 0
+                fetch('/api/messages/'+id, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - fetched message dynamic data')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = Number(data['upvoteCount'])
+                        document.getElementsByClassName('message')[0].getElementsByClassName('message-footer-commentcount')[0].innerHTML = Number(data['commentCount'])
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
+            }
+
+            function backend_postReply(userID, content, messageID, _offset, callback) {
+                console.log('MOCKBACKEND: ' + userID + ' - posted message with content ' + content)
+                //for(i=0; i<999000000; i++);
+                //TODO Send backend request to post a reply
+
+                var myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                var raw = JSON.stringify({
+                "message_id": messageID,
+                "content": content,
+                "offset" : _offset
+                });
+
+                var requestOptions = {
+                method: 'POST',
+                headers: myHeaders,
+                body: raw,
+                redirect: 'follow'
+                };
+                fetch("/api/replies", requestOptions)
+                .then(response => {if(!response.ok) {
+                    console.log('BACKEND: ' + userID + ' - posted reply for message ' + messageID + ' content ' + content)
+                } else {
+                    console.log('BACKEND ERROR: ' + response.status)
+                }
+                return response.json()})
+                .then(result => {callback(result['gapped_replies'], result['newOffset'])})
+                .catch(error => console.log('BACKEND ERROR: ' + error));
+            }
+
+            function appendReplyToScroller(id, upvoteCount, user, timestamp, content, status){
+                if(user==getCookie('userID'))
+                    user = (user + ' (You)')
+                var _upvoteOpacity = 0.3
+                var _downvoteOpacity = 0.3
+                if(status=="U")
+                    _upvoteOpacity = 1
+                if(status=="D")
+                    _downvoteOpacity = 1
+                var reply =   `<div id="${id}" class="reply">
+                                    <div class="reply-header">
+                                        <span class="glyphicon icon-upvote" style="opacity:${_upvoteOpacity};" onClick="upvoteReply('${id}')">⬆️</span>
+                                        <span class="reply-header-upvotes">${upvoteCount}</span>
+                                        <span class="glyphicon icon-downvote" style="opacity:${_downvoteOpacity};" onClick="downvoteReply('${id}')">⬇️</span>
+                                    </div>
+                                    <div class="reply-body">
+                                        <span class="reply-header-poster">Reply by ${user} @ ${timestamp}</span>
+                                        <div class="reply-content">${content}</div>
+                                    </div>
+                                </div>`
+                var scroller = document.getElementsByClassName("replies-scroller")[0]
+                scroller.innerHTML = scroller.innerHTML + reply
+
+                const intervalID = setInterval(backend_getReplyDynamicData, polling_wait, id);
+            }
+
+            //LOGIC
+            function toggleEditor() {
+                var display = document.getElementById("reply").style.display
+                if(display=='none')
+                    document.getElementById("reply").style.display = 'initial'
+                else
+                    document.getElementById("reply").style.display = 'none'
+            }
+
+            function upvoteReply(id) {
+                console.log('Upvoting request for ' + id)
+                var upvoteOpacity = document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity
+                var downvoteOpacity = document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity
+                if(upvoteOpacity==0.3 && downvoteOpacity==0.3) { //No upvotes or downvotes by user
+                    document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity = 1
+                    console.log('Upvoted')
+                    //TODO Increment upvote
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount+1
+                    //TODO send upvote request to backend
+                    backend_incrementReplyUpvotes(id)
+                } else if (upvoteOpacity==0.3 && downvoteOpacity==1) { //Send upvote request
+                    document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity = 1
+                    document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity = 0.3
+                    console.log('Changed from downvote to upvote')
+                    //TODO Increment upvote +2
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount+2
+                    //TODO send upvote request to backend
+                    backend_incrementReplyUpvotes(id)
+                } else if (upvoteOpacity==1) { //Previous upvote to be cancelled
+                    document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity = 0.3
+                    console.log('Cancelled upvote')
+                    //TODO Decrement upvote
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount-1
+                    //TODO send neutral request to backend
+                    backend_neutralReplyUpvotes(id)
+                } else {
+                    console.warn('Upvote case that is not handled upvoteOpacity ' + upvoteOpacity + ' downvoteOpacity ' + downvoteOpacity)
+                }
+            }
+            function downvoteReply(id) {
+                console.log('Downvoting request for ' + id)
+                var upvoteOpacity = document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity
+                var downvoteOpacity = document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity
+                if(upvoteOpacity==0.3 && downvoteOpacity==0.3) { //No upvotes or downvotes by user
+                    document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity = 1
+                    console.log('Downvoted')
+                    //TODO Decrement upvote
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount-1
+                    //TODO send downvote request to backend
+                    backend_decrementReplyUpvotes(id)
+                } else if (downvoteOpacity==0.3 && upvoteOpacity==1) { //Send down request
+                    document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity = 1
+                    document.getElementById(id).getElementsByClassName('icon-upvote')[0].style.opacity = 0.3
+                    console.log('Changed from upvote to downvote')
+                    //TODO Decrement upvote +2
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount-2
+                    //TODO send downvote request to backend
+                    backend_decrementReplyUpvotes(id)
+                } else if (downvoteOpacity==1) { //Previous downvote to be cancelled
+                    document.getElementById(id).getElementsByClassName('icon-downvote')[0].style.opacity = 0.3
+                    console.log('Cancelled downvote')
+                    //TODO Increment upvote
+                    var upvoteCount = Number(document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML)
+                    document.getElementById(id).getElementsByClassName('reply-header-upvotes')[0].innerHTML = upvoteCount+1
+                    //TODO send neutral request to backend
+                    backend_neutralReplyUpvotes(id)
+                } else {
+                    console.warn('Upvote case that is not handled upvoteOpacity ' + upvoteOpacity + ' downvoteOpacity ' + downvoteOpacity)
+                }
+            }
+            function upvoteMessage(id) {
+                console.log('Upvoting request for ' + id)
+                var upvoteOpacity = document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity
+                var downvoteOpacity = document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity
+                if(upvoteOpacity==0.3 && downvoteOpacity==0.3) { //No upvotes or downvotes by user
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity = 1
+                    console.log('Upvoted')
+                    //TODO Increment upvote
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount+1
+                    //TODO send upvote request to backend
+                    backend_incrementUpvotes(id)
+                } else if (upvoteOpacity==0.3 && downvoteOpacity==1) { //Send upvote request
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity = 1
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity = 0.3
+                    console.log('Changed from downvote to upvote')
+                    //TODO Increment upvote +2
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount+2
+                    //TODO send upvote request to backend
+                    backend_incrementUpvotes(id)
+                } else if (upvoteOpacity==1) { //Previous upvote to be cancelled
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity = 0.3
+                    console.log('Cancelled upvote')
+                    //TODO Decrement upvote
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount-1
+                    //TODO send neutral request to backend
+                    backend_neutralupvotes(id)
+                } else {
+                    console.warn('Upvote case that is not handled upvoteOpacity ' + upvoteOpacity + ' downvoteOpacity ' + downvoteOpacity)
+                }
+            }
+            function downvoteMessage(id) {
+                console.log('Downvoting request for ' + id)
+                var upvoteOpacity = document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity
+                var downvoteOpacity = document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity
+                if(upvoteOpacity==0.3 && downvoteOpacity==0.3) { //No upvotes or downvotes by user
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity = 1
+                    console.log('Downvoted')
+                    //TODO Decrement upvote
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount-1
+                    //TODO send downvote request to backend
+                    backend_decrementUpvotes(id)
+                } else if (downvoteOpacity==0.3 && upvoteOpacity==1) { //Send down request
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity = 1
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-upvote')[0].style.opacity = 0.3
+                    console.log('Changed from upvote to downvote')
+                    //TODO Decrement upvote +2
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount-2
+                    //TODO send downvote request to backend
+                    backend_decrementUpvotes(id)
+                } else if (downvoteOpacity==1) { //Previous downvote to be cancelled
+                    document.getElementsByClassName('message')[0].getElementsByClassName('icon-downvote')[0].style.opacity = 0.3
+                    console.log('Cancelled downvote')
+                    //TODO Increment upvote
+                    var upvoteCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML)
+                    document.getElementsByClassName('message')[0].getElementsByClassName('message-header-upvotes')[0].innerHTML = upvoteCount+1
+                    //TODO send neutral request to backend
+                    backend_neutralupvotes(id)
+                } else {
+                    console.warn('Upvote case that is not handled upvoteOpacity ' + upvoteOpacity + ' downvoteOpacity ' + downvoteOpacity)
+                }
+            }
+
+            function postReply() {
+                var content = document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].value
+                var userID = Math.round(Math.random() * (10000000))
+                if(content=='' || content==undefined || content==null || userID==undefined || userID==null) {
+                    console.warn(`Found undefined or null value in parameters, cannot post reply (${userID}, ${content})`)
+                    alert('Cannot submit with empty content')
+                } else {
+                    document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader')
+                    document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader')
+                    backend_postReply(userID, content, @@@@@@, current_offset, (gap_replies, new_offset) => {
+                        //Append gap_replies
+                        for(let i = 0; i < gap_replies.length; i++) {
+                            appendReplyToScroller(gap_replies[i]['id'], gap_replies[i]['upvoteCount'], gap_replies[i]['user_id'], gap_replies[i]['createdAt'], gap_replies[i]['content'], gap_replies[i]['reply_votes'].length>0?gap_replies[i]['reply_votes'][0]['status']:"N")
+                        }
+                        //Update current_offset with new offset
+                        if(new_offset==null || new_offset==undefined || new_offset=='')
+                            console.warn('Got bad offset value from backend, ignoring')
+                        else
+                            current_offset = Number(new_offset)
+                        document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader');
+                        document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader');
+                        document.getElementsByClassName('reply-editor')[0].getElementsByClassName('content')[0].value='';
+                        document.getElementsByClassName('reply-editor')[0].getElementsByClassName('submit-button')[0].value='';
+                        var postCommentCount = Number(document.getElementsByClassName('message')[0].getElementsByClassName('message-footer-commentcount')[0].innerHTML)
+                        document.getElementsByClassName('message-footer-commentcount')[0].innerHTML = postCommentCount+1
+                    })
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h1 id="user">Dojel - User </h1>
+        <div id="main-message"></div>
+        <div id="reply" class="reply-editor" style="display: none;">
+            <textarea class="content" placeholder="Insert comment here..."></textarea>
+            <button class="submit-button" onclick="postReply()">Post</button>
+        </div>
+        <div class="replies-scroller"></div>
+        <script>
+            backend_fetch_message(@@@@@@, (response)=>{
+                console.log(response)
+                //({ 'id':'id', 'upvoteCount':'0', 'title':'Example title', 'user':'Gianpiero', 'timestamp':'Tue 20:56', 'content':'Lore ipsum doloret sit amet', 'commentCount':'56', 'status':'U' })
+                let _id = response['id']
+                let _status = response['status']
+                let _upvoteOpacity = 0.3
+                let _downvoteOpacity = 0.3
+                let _upvoteCount = response['upvoteCount']
+                let _title = response['title']
+                let _content = response['content']
+                let _user = response['user']
+                if(_user==getCookie('userID'))
+                    _user = (_user + ' (You)')
+                let _timestamp = response['timestamp']
+                let _commentCount = response['commentCount']
+                if(_status=='U')
+                    _upvoteOpacity = 1
+                if(_status=='D')
+                    _downvoteOpacity = 1
+                let template = `<div class="message">
+                                <div class="message-header">
+                                    <span class="glyphicon icon-upvote" style="opacity:${_upvoteOpacity};" onClick="upvoteMessage('${_id}')">⬆️</span>
+                                    <span class="message-header-upvotes">${_upvoteCount}</span>
+                                    <span class="glyphicon icon-downvote" style="opacity:${_downvoteOpacity};" onClick="downvoteMessage('${_id}')">⬇️</span>
+                                </div>
+                                <div class="message-body">
+                                    <span class="message-header-title">${_title}</span>
+                                    <div class="message-content">${_content}</div>
+                                    <div class="message-footer">
+                                        <a style="padding-right:1rem" href="#${_id}" onclick="toggleEditor()">Reply (<span class="message-footer-commentcount">${_commentCount}</span> comments)</a>
+                                        <span class="message-header-poster">Posted by ${_user} @ ${_timestamp}</span>
+                                    </div>
+                                </div>
+                            </div>`
+                document.getElementById('main-message').innerHTML = template
+            })
+            //INIT
+            backend_fetch_replies(current_offset)
+            //To detect scroll at bottom
+            document.addEventListener('scroll', function (event) {
+                if (document.body.scrollHeight == 
+                    document.body.scrollTop +        
+                    window.innerHeight) {
+                    backend_fetch_replies(current_offset)
+                }
+            });
+            //Hacky solution for infinite scroll, put last id of message as offset
+            //To keep the message data updated
+            const intervalID = setInterval(backend_getdynamicdata, polling_wait, @@@@@@);
+            //Keep getting updated for new replies by backend
+            setInterval(() => {
+                if(document.getElementsByClassName('replies-scroller')[0].childNodes.length<20)
+                {
+                    console.log("Less than 20 messages displayed, looking for more")
+                    backend_fetch_replies(current_offset)
+                }
+            }, polling_wait)
+            document.getElementById("user").innerHTML = "Dojel - User " + getCookie('userID')
+        </script>
+    </body>
+</html>

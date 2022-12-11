@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: alifarjad/dswa3:latest
+          resources:
+            requests:
+              cpu: "250m"
+            limits:
+              cpu: "500m"
+          ports:
+            - containerPort: 5002
+          env:
+            - name: PGPW
+              valueFrom:
+                secretKeyRef:
+                  name: pg-cluster-app
+                  key: password
+                  optional: false # stating that the secret "my-database-cluster-app" must exist
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: pg-cluster-app
+                  key: username
+                  optional: false # stating that the secret "my-database-cluster-app" must exist

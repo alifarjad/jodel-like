@@ -170,6 +170,12 @@
             var current_offset = 0;
 
             //LOCAL SYTEM CALLS
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+            }
+
             function system_getIntervalIDForMessage(id) {
                 let intervalID = dict[id]
                 if(intervalID==undefined || intervalID==null)
@@ -186,42 +192,101 @@
 
             //BACKEND CALLS
             function backend_incrementUpvotes(id) {
-                console.log('MOCKBACKEND: ' + id + ' - incremented upvotes successfully')
-                //TODO Send backend request for increment of upvote
+                fetch('/api/messages/'+id+'/upvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - incremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
             }
             function backend_decrementUpvotes(id) {
-                console.log('MOCKBACKEND: ' + id + ' - decremented upvotes successfully')
-                //TODO Send backend request for decrement of upvote
+                fetch('/api/messages/'+id+'/downvote', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - decremented upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
             }
             function backend_neutralupvotes(id) {
-                console.log('MOCKBACKEND: ' + id + ' - neutralized upvotes successfully')
-                //TODO Send backend request for neutral of upvote
+                fetch('/api/messages/'+id+'/neutralize', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - neutralized upvotes successfully')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }})
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
             }
             function backend_getdynamicdata(id) {
-                console.log('MOCKBACKEND: ' + id + ' - fetched dynamic data')
-                //TODO Send backend request for neutral of upvote
-                var max = 1000
-                var min = 0
-                //First is upvote second is comments
-                return [Math.round(Math.random() * (max - min) + min), Math.round(Math.random() * (max - min) + min)]
+                let __votecount = 0
+                let __commentcount = 0
+                fetch('/api/messages/'+id, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: ' + id + ' - fetched dynamic data')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        document.getElementById(id).getElementsByClassName('message-header-upvotes')[0].innerHTML = Number(data['upvoteCount'])
+                        document.getElementById(id).getElementsByClassName('message-footer-commentcount')[0].innerHTML = Number(data['commentCount'])
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
             }
             function backend_postmessage(userID, title, content, _offset, callback) {
-                console.log('MOCKBACKEND: ' + userID + ' - posted message with title ' + title + ' content ' + content)
-                //for(i=0; i<999000000; i++);
-                //TODO Send backend request to post a message
-                //The backend needs to share a new offset and if the there is gap between the offset, provide the messages between the gap
-                //so that the logic can put those messages first
-                let _id = Math.round(Math.random() * (10000000))
-                let _upvoteCount = Math.round(Math.random() * (50 - 10) + 10)
-                let _title = title
-                let _user = userID
-                let _timestamp = Math.round(Math.random() * (10000000 - 5) + 5)
-                let _content = content
-                let _commentCount = Math.round(Math.random() * (20 - 5) + 10)
-                let _status = "U"
-                let _gap_messages = []
-                let _new_offset = _gap_messages.length+42 //Get offset value from backend - DO NOT CALCULATE
-                callback(_id, _upvoteCount, _title, _user, _timestamp, _content, _commentCount, _status, _gap_messages, _new_offset)
+                var myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                var raw = JSON.stringify({
+                "title": title,
+                "content": content,
+                "offset" : _offset
+                });
+
+                var requestOptions = {
+                method: 'POST',
+                headers: myHeaders,
+                body: raw,
+                redirect: 'follow'
+                };
+                fetch("/api/messages", requestOptions)
+                .then(response => {if(!response.ok) {
+                    console.log('BACKEND: ' + userID + ' - posted message with title ' + title + ' content ' + content)
+                } else {
+                    console.log('BACKEND ERROR: ' + response.status)
+                }
+                return response.json()})
+                .then(result => {callback(result['gapped_messages'], result['newOffset'])})
+                .catch(error => console.log('BACKEND ERROR: ' + error));
             }
 
             function backend_fetch_messages(offset) {
@@ -229,12 +294,35 @@
                     offset=0
                 }
                 console.log('Fetching more messages, offset: ' + offset)
-                //TODO Replace logic with backend call to fetch messages
-                let i = offset
-                for(; i < (20+offset); i++) {
-                    appendMessageToScroller(i, Math.round(Math.random() * (100)), 'Title ' + i, Math.round(Math.random() * (100000000)), Math.round(Math.random() * (100000000)), 'Lorem ipsum doloret'+i, Math.round(Math.random() * (10)), "U")
-                }
-                return i
+                fetch('/api/messages?offset='+offset, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    })
+                    .then((response) => {if(response.ok){
+                        console.log('BACKEND: fetched messages')
+                    } else {
+                        console.log('BACKEND ERROR: ' + response.status)
+                    }
+                    return response.json()})
+                    .then((data) => {
+                        current_offset = data['newOffset']
+                       for(let i = 0; i < data['messages'].length; i++) {
+                            console.log(data['messages'][i])
+                            appendMessageToScroller(data['messages'][i]['id'],
+                                                    data['messages'][i]['upvoteCount'],
+                                                    data['messages'][i]['title'],
+                                                    data['messages'][i]['user_id'],
+                                                    data['messages'][i]['createdAt'],
+                                                    data['messages'][i]['content'],
+                                                    data['messages'][i]['commentCount'],
+                                                    data['messages'][i]['message_votes'].length>0?data['messages'][i]['message_votes'][0]["status"]:"N")
+                       }
+                    })
+                    .catch((error) => {
+                        console.error('BACKEND ERROR:', error);
+                    });
             }
             
 
@@ -306,6 +394,8 @@
                 }
             }
             function appendMessageToScroller(id, upvoteCount, title, user, timestamp, content, commentCount, status){
+                if(user==getCookie('userID'))
+                    user = (user + ' (You)')
                 var _upvoteOpacity = 0.3
                 var _downvoteOpacity = 0.3
                 if(status=="U")
@@ -322,8 +412,8 @@
                                         <span class="message-header-title">${title}</span>
                                         <div class="message-content">${content}</div>
                                         <div class="message-footer">
-                                            <a style="padding-right:1rem" href="./threads/${id}">Reply (<span class="message-footer-commentcount">${commentCount}</span> comments)</a>
-                                            <a href="./threads/${id}">View thread</a>
+                                            <a style="padding-right:1rem" href="./messages/${id}">Reply (<span class="message-footer-commentcount">${commentCount}</span> comments)</a>
+                                            <a href="./messages/${id}">View thread</a>
                                             <span class="message-header-poster">Posted by ${user} @ ${timestamp}</span>
                                         </div>
                                     </div>
@@ -331,15 +421,8 @@
                 var scroller = document.getElementsByClassName("messages-scroller")[0]
                 scroller.innerHTML = scroller.innerHTML + message
 
-                const intervalID = setInterval(fetchDynamicData, polling_wait);
+                const intervalID = setInterval(backend_getdynamicdata, polling_wait, id);
                 system_setIntervalIDForMessage(id, intervalID)
-
-                function fetchDynamicData()
-                {
-                    var dynamicData = backend_getdynamicdata(id)
-                    document.getElementById(id).getElementsByClassName('message-header-upvotes')[0].innerHTML = dynamicData[0]
-                    document.getElementById(id).getElementsByClassName('message-footer-commentcount')[0].innerHTML = dynamicData[1]
-                }
             }
 
             function postMessage() {
@@ -353,10 +436,10 @@
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('title')[0].classList.toggle('loader')
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('content')[0].classList.toggle('loader')
                     document.getElementsByClassName('message-editor')[0].getElementsByClassName('submit-button')[0].classList.toggle('loader')
-                    backend_postmessage(userID, title, content, current_offset, (id, upvoteCount, title, user, timestamp, content, commentCount, status, gap_messages, new_offset) => {
+                    backend_postmessage(userID, title, content, current_offset, (gap_messages, new_offset) => {
                         //Append gap_messages
                         for(let i = 0; i < gap_messages.length; i++) {
-                            appendMessageToScroller(gap_messages[i]['id'], gap_messages[i]['upvoteCount'], gap_messages[i]['title'], gap_messages[i]['user'], gap_messages[i]['timestamp'], gap_messages[i]['content'], gap_messages[i]['commentCount'], gap_messages[i]['status'])
+                            appendMessageToScroller(gap_messages[i]['id'], gap_messages[i]['upvoteCount'], gap_messages[i]['title'], gap_messages[i]['user_id'], gap_messages[i]['createdAt'], gap_messages[i]['content'], gap_messages[i]['commentCount'], gap_messages[i]['message_votes'].length>0?gap_messages[i]['message_votes'][0]['status']:"N")
                         }
                         //Update current_offset with new offset
                         if(new_offset==null || new_offset==undefined || new_offset=='')
@@ -369,7 +452,6 @@
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('title')[0].value='';
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('content')[0].value='';
                         document.getElementsByClassName('message-editor')[0].getElementsByClassName('submit-button')[0].value='';
-                        appendMessageToScroller(id, upvoteCount, title, user, timestamp, content, commentCount, status)
                     })
                 }
             }
@@ -377,7 +459,7 @@
         </script>
     </head>
     <body>
-        <h1>Dojel</h1>
+        <h1 id="user">Dojel - User </h1>
         <div class="message-editor">
             <textarea class="title" placeholder="Insert title here..."></textarea>
             <textarea class="content" placeholder="Insert content here..."></textarea>
@@ -386,17 +468,23 @@
         <div class="messages-scroller"></div>
         <script>
             //INIT
-            let lastMessageID = backend_fetch_messages(current_offset)
-            current_offset=lastMessageID
+            backend_fetch_messages(current_offset)
             //To detect scroll at bottom
             document.addEventListener('scroll', function (event) {
                 if (document.body.scrollHeight == 
                     document.body.scrollTop +        
                     window.innerHeight) {
-                    let lastMessageID = backend_fetch_messages(current_offset)
-                    current_offset=lastMessageID
+                    backend_fetch_messages(current_offset)
                 }
             });
+            document.getElementById("user").innerHTML = "Dojel - User " + getCookie('userID')
+            setInterval(() => {
+                if(document.getElementsByClassName('messages-scroller')[0].childNodes.length<20)
+                {
+                    console.log("Less than 20 messages displayed, looking for more")
+                    backend_fetch_messages(current_offset)
+                }
+            }, polling_wait)
         </script>
     </body>
 </html>

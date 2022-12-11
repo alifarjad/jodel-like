@@ -1,0 +1,40 @@
+# Example of PostgreSQL cluster
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-cluster
+spec:
+  instances: 3
+
+  # Example of rolling update strategy:
+  # - unsupervised: automated update of the primary once all
+  #                 replicas have been upgraded (default)
+  # - supervised: requires manual supervision to perform
+  #               the switchover of the primary
+  primaryUpdateStrategy: unsupervised
+
+  # Require 1Gi of space
+  storage:
+    pvcTemplate:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: standard
+      volumeMode: Filesystem
+
+
+#          env:
+#            - name: PGPW
+#              valueFrom:
+#                secretKeyRef:
+#                  name: pg-cluster
+#                  key: password
+#                  optional: false # stating that the secret "my-database-cluster-app" must exist
+#            - name: PGUSER
+#              valueFrom:
+#                secretKeyRef:
+#                  name: pg-cluster
+#                  key: username
+#                  optional: false # stating that the secret "my-database-cluster-app" must exist

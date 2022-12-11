@@ -1,11 +1,5 @@
-version: "3.9"
+version: "3"
 services:
-  rabbit:
-    container_name: rabbitqueue
-    image: "zauberpony/rabbitmq-x-consistent-hash"
-    ports:
-      - "5672:5672"
-      - "15672:15672"
   postgresnode:
     environment:
       - POSTGRES_USER=express
@@ -23,7 +17,6 @@ services:
       - "5002:5002"
     depends_on:
       - "postgresnode"
-      - "rabbit"
 
 #cd nodeapi
 #docker compose build

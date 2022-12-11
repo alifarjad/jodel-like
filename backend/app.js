@@ -1,13 +1,10 @@
 const { Sequelize, Model, DataTypes, HasOne, Op } = require('sequelize');
 const path = require('path');
 var crypto = require('crypto');
-const amqp = require("amqplib");
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 
-var channel, connection;
-
-const sequelize = new Sequelize('postgres://express:express@postgresnode:5432/express', {
+const sequelize = new Sequelize(`postgres://${process.env.PGUSER}:${process.env.PGPW}@pg-cluster-rw:5432/app`, {
     pool: {
     max: 50,
     min: 0,
@@ -55,6 +52,10 @@ const Replies = sequelize.define('replies', {
         },
         {
             fields: ['user_id']
+        },
+        {
+            unique: true,
+            fields: ['id', 'messageId']
         }]
     }
 );
@@ -99,23 +100,21 @@ const ReplyVotes = sequelize.define('reply_votes', {
     }
 );
 
-Messages.hasMany(Replies, {
+Messages.Replies = Messages.hasMany(Replies, {
     foreignKey: 'messageID'
   })
-Replies.belongsTo(Messages)
+Replies.Messages = Replies.belongsTo(Messages)
 
-Messages.hasMany(MessageVotes)
-MessageVotes.belongsTo(Messages)
+Messages.MessageVotes = Messages.hasMany(MessageVotes)
+MessageVotes.Messages = MessageVotes.belongsTo(Messages)
 
-Replies.hasMany(ReplyVotes)
-ReplyVotes.belongsTo(Replies)
+Replies.ReplyVotes = Replies.hasMany(ReplyVotes)
+ReplyVotes.Replies = ReplyVotes.belongsTo(Replies)
 
 //Trick to use await of top level
 connect_to_db_and_queue(sequelize).then(async ()=>{
     populate_db()
     console.log("Finished setting up DB.")
-    await initialize_exchange()
-    console.log("Finished setting up message broker.")
     app.listen(5002, function() {
         console.log('listening on 5002')
       })
@@ -135,7 +134,7 @@ app.get('/', async (req, res) => {
     if (cookie === undefined) {
       var randomNumber=Math.random().toString();
       randomNumber=randomNumber.substring(2,randomNumber.length);
-      res.cookie('userID',randomNumber, { maxAge: 1000*60*60*24*365, httpOnly: true });
+      res.cookie('userID',randomNumber, { maxAge: 1000*60*60*24*365, httpOnly: false });
       console.log('cookie created successfully');
     } else {
       // yes, cookie was already present 
@@ -210,7 +209,7 @@ app.get('/messages/:id',async (req, res) => {
     if (cookie === undefined) {
       var randomNumber=Math.random().toString();
       randomNumber=randomNumber.substring(2,randomNumber.length);
-      res.cookie('userID',randomNumber, { maxAge: 1000*60*60*24*365, httpOnly: true });
+      res.cookie('userID',randomNumber, { maxAge: 1000*60*60*24*365, httpOnly: false });
       console.log('cookie created successfully');
     } else {
       // yes, cookie was already present 
@@ -224,7 +223,7 @@ app.get('/messages/:id',async (req, res) => {
         res.send('Not found')
         return
     }
-    fs.readFile('thread.template', 'utf8', (err, data) => {
+    fs.readFile('thread.html', 'utf8', (err, data) => {
         if (err) {
           console.error(err);
           res.status(500)
@@ -232,7 +231,7 @@ app.get('/messages/:id',async (req, res) => {
           return;
         }
         res.status(200)
-        res.send(data.replace('@@@@@@', messageID))
+        res.send(data.replaceAll('@@@@@@', messageID))
       });
 })
 
@@ -276,6 +275,20 @@ app.get('/api/messages/:id/upvote',async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [messageVote, created] = await MessageVotes.findOrCreate({ where : {
+        user_id: user,
+        messageId: messageID
+    }})
+
+    if(messageVote.status == "D")
+        Messages.increment('upvoteCount', { by: 2, where: { id: messageID }});
+    else if (messageVote.status == "N" || messageVote.status==null || messageVote.status=='' || messageVote.status==undefined)
+        Messages.increment('upvoteCount', { by: 1, where: { id: messageID }});
+
+    messageVote.status = "U"
+    await messageVote.save()
+
     emitMessageUpvoteEvent(messageID, user)
     res.status(200)
     res.send('Upvoted message with id ' + messageID + ' successfully.')
@@ -297,6 +310,20 @@ app.get('/api/messages/:id/downvote',async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [messageVote, created] = await MessageVotes.findOrCreate({ where : {
+        user_id: user,
+        messageId: messageID
+    }})
+
+    if(messageVote.status == "U")
+        Messages.decrement('upvoteCount', { by: 2, where: { id: messageID }});
+    else if (messageVote.status == "N" || messageVote.status==null || messageVote.status=='' || messageVote.status==undefined)
+        Messages.decrement('upvoteCount', { by: 1, where: { id: messageID }});
+
+    messageVote.status = "D"
+    await messageVote.save()
+
     emitMessageDownvoteEvent(messageID, user)
     res.status(200)
     res.send('Downvoted message with id ' + messageID + ' successfully.')
@@ -318,6 +345,20 @@ app.get('/api/messages/:id/neutralize',async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [messageVote, created] = await MessageVotes.findOrCreate({ where : {
+        user_id: user,
+        messageId: messageID
+    }})
+
+    if(messageVote.status == "D")
+        Messages.increment('upvoteCount', { by: 1, where: { id: messageID }});
+    else if (messageVote.status == "U")
+        Messages.decrement('upvoteCount', { by: 1, where: { id: messageID }});
+
+    messageVote.status = "N"
+    await messageVote.save()
+
     emitMessageNeutralVoteEvent(messageID, user)
     res.status(200)
     res.send('Neutralized vote for message with id ' + messageID + ' successfully.')
@@ -364,6 +405,20 @@ app.get('/api/replies/:id/upvote', async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [replyVote, created] = await ReplyVotes.findOrCreate({ where : {
+        user_id: user,
+        replyId: replyID
+    }})
+
+    if(replyVote.status == "D")
+        Replies.increment('upvoteCount', { by: 2, where: { id: replyID }});
+    else if (replyVote.status == "N" || replyVote.status==null || replyVote.status=='' || replyVote.status==undefined)
+        Replies.increment('upvoteCount', { by: 1, where: { id: replyID }});
+
+    replyVote.status = "U"
+    await replyVote.save()
+
     emitReplyUpvoteEvent(replyID, user)
     res.status(200)
     res.send('Upvoted reply with id ' + replyID + ' successfully.')
@@ -386,6 +441,20 @@ app.get('/api/replies/:id/downvote', async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [replyVote, created] = await ReplyVotes.findOrCreate({ where : {
+        user_id: user,
+        replyId: replyID
+    }})
+
+    if(replyVote.status == "U")
+        Replies.decrement('upvoteCount', { by: 2, where: { id: replyID }});
+    else if (replyVote.status == "N" || replyVote.status==null || replyVote.status=='' || replyVote.status==undefined)
+        Replies.decrement('upvoteCount', { by: 1, where: { id: replyID }});
+
+    replyVote.status = "D"
+    await replyVote.save()
+
     emitReplyDownvoteEvent(replyID, user)
     res.status(200)
     res.send('Downvoted reply with id ' + replyID + ' successfully.')
@@ -408,6 +477,20 @@ app.get('/api/replies/:id/neutralize', async (req, res) => {
         res.send('Not found')
         return
     }
+
+    const [replyVote, created] = await ReplyVotes.findOrCreate({ where : {
+        user_id: user,
+        replyId: replyID
+    }})
+
+    if(replyVote.status == "D")
+        Replies.increment('upvoteCount', { by: 1, where: { id: replyID }});
+    else if (replyVote.status == "U")
+        Replies.decrement('upvoteCount', { by: 1, where: { id: replyID }});
+
+    replyVote.status = "N"
+    await replyVote.save()
+
     emitReplyNeutralVoteEvent(replyID, user)
     res.status(200)
     res.send('Neutralized vote for reply with id ' + replyID + ' successfully.')
@@ -421,16 +504,64 @@ app.post('/api/messages', async (req, res) => {
         res.send('Unauthorized')
         return
     }
-    if(req.cookies.userID==null || req.body.title==null || req.body.content==null 
-        || req.cookies.userID==undefined || req.body.title==undefined || req.body.content==undefined) {
+    if(req.cookies.userID==null || req.body.title==null || req.body.content==null || req.body.offset==null
+        || req.cookies.userID==undefined || req.body.title==undefined || req.body.content==undefined || req.body.offset==null) {
         res.status(400)
         res.send('Bad request')
         return
     }
+    //Save message to database
+    /*        id: {
+            type: Sequelize.INTEGER,
+            autoIncrement: true,
+            primaryKey: true
+        },
+        title: DataTypes.TEXT('long'),
+        content: DataTypes.TEXT('long'),
+        commentCount: Sequelize.INTEGER,
+        upvoteCount: Sequelize.INTEGER,
+        user_id: Sequelize.STRING,*/
+    const message = await Messages.create({
+        title: req.body.title,
+        content: req.body.content,
+        commentCount: 0,
+        upvoteCount: 1,
+        user_id: user,
+        message_votes : [{
+            status: "U",
+            user_id: user,
+        }]
+    },{
+        include: [{
+          association:  Messages.MessageVotes,
+          include: [MessageVotes.Messages]
+        }]
+      })
+
+    const gap_messages = await Messages.findAll({
+        where: { id: {
+            [Op.between]: [Number(req.body.offset)+1, message.id]
+          } },
+        order: [['id', 'ASC']],
+        include: {
+            model: MessageVotes,
+            where: { user_id : user },
+            required: false
+        }
+    });
+
+    var newOffset = req.body.offset
+    if(gap_messages.length>0){
+        newOffset = gap_messages[gap_messages.length-1].id
+    }
+
     //Emit event to create message
-    emitMessageSubmitEvent(req.body.title, req.body.content, user)
+    let uniqueRay = Math.round(Math.random()*100000000)+''
+    emitMessageSubmitEvent(req.body.title, req.body.content, user, uniqueRay)
+    //TODO Poll DB for message with userID and uniqueRay and then return all the info requested by the frontend
+
     res.status(201)
-    res.status('Message submitted.')
+    res.send({ 'newOffset' : newOffset, 'gapped_messages' : gap_messages})
 })
 
 app.post('/api/replies', async (req, res) => {
@@ -440,16 +571,56 @@ app.post('/api/replies', async (req, res) => {
         res.send('Unauthorized')
         return
     }
-    if(req.cookies.userID==null || req.body.content==null || req.body.message_id==null 
-        || req.cookies.userID==undefined || req.body.content==undefined || req.body.message_id==undefined) {
+    if(req.cookies.userID==null || req.body.content==null || req.body.message_id==null || req.body.offset==null
+        || req.cookies.userID==undefined || req.body.content==undefined || req.body.message_id==undefined || req.body.offset==undefined) {
         res.status(400)
         res.send('Bad request')
         return
     }
+
+    const reply = await Replies.create({
+        content: req.body.content,
+        upvoteCount: 1,
+        user_id: user,
+        reply_votes : [{
+            status: "U",
+            user_id: user,
+        }],
+        messageID: req.body.message_id,
+        messageId: req.body.message_id
+    },{
+        include: [{
+          association:  Replies.ReplyVotes,
+          include: [ReplyVotes.Replies]
+        }]
+      })
+
+    Messages.increment('commentCount', { by: 1, where: { id: req.body.message_id }});
+
+    const gap_replies = await Replies.findAll({
+        where: { id: {
+            [Op.between]: [Number(req.body.offset)+1, reply.id]
+          }, messageId: req.body.message_id },
+        order: [['id', 'ASC']],
+        include: {
+            model: ReplyVotes,
+            where: { user_id : user },
+            required: false
+        }
+    });
+
+    var newOffset = req.body.offset
+    if(gap_replies.length>0){
+        newOffset = gap_replies[gap_replies.length-1].id
+    }
+
+
     //Emit event to create reply
-    emitReplySubmitEvent(req.body.content, user, req.body.message_id)
+    let uniqueRay = Math.round(Math.random()*100000000)+''
+    emitReplySubmitEvent(req.body.content, user, req.body.message_id, uniqueRay)
+    //TODO Poll DB for reply with userID and uniqueRay and then return all the info requested by the frontend
     res.status(201)
-    res.status('Reply submitted.')
+    res.send({ 'newOffset' : newOffset, 'gapped_replies' : gap_replies})
 })
 
 async function connect_to_db_and_queue(sequelize) {
@@ -467,74 +638,39 @@ async function connect_to_db_and_queue(sequelize) {
             console.error('Unable to connect to the database. Retrying...', error);
         }
     }
-    console.log("Connecting to RabbitMQ...")
-    while(true) {
-        await sleep(2000)
-        try {
-            connection = await amqp.connect("amqp://rabbit:5672");
-            channel = await connection.createChannel()
-            
-            // connect to 'test-queue', create one if doesnot exist already
-            await channel.assertQueue("HEALTH_CHECK")
-            console.log("Connected to RabbitMQ!")
-            break
-        } catch (error) {
-            console.log("Waiting for RabbitMQ to be online...")
-        }
-    }
-    return
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }
-
-async function initialize_exchange() {
-    //Create exchange for frontend_events
-    await channel.assertExchange('frontend_events', 'x-consistent-hash')
 }
 
 function emitMessageUpvoteEvent(message_id, user_id) {
     console.log("Emitting message upvote event")
     let payload = { 'type' : 'MESSAGE_UPVOTE', 'user' : user_id, 'id' : message_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
 function emitMessageDownvoteEvent(message_id, user_id) {
     console.log("Emitting message downvote event")
     let payload = { 'type' : 'MESSAGE_DOWNVOTE', 'user' : user_id, 'id' : message_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
 function emitMessageNeutralVoteEvent(message_id, user_id) {
     console.log("Emitting message neutral vote event")
     let payload = { 'type' : 'MESSAGE_NEUTRALVOTE', 'user' : user_id, 'id' : message_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
-function emitMessageSubmitEvent(title, content, user_id) {
+function emitMessageSubmitEvent(title, content, user_id, ray_id) {
     console.log("Emitting message submit event")
-    let payload = { 'type' : 'MESSAGE_SUBMIT', 'user' : user_id, 'title' : title, 'content' : content }
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
+    let payload = { 'type' : 'MESSAGE_SUBMIT', 'user' : user_id, 'title' : title, 'content' : content, 'ray_id': ray_id}
 }
 function emitReplyUpvoteEvent(reply_id, user_id) {
     console.log("Emitting reply upvote event")
     let payload = { 'type' : 'REPLY_UPVOTE', 'user' : user_id, 'id' : reply_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
 function emitReplyDownvoteEvent(reply_id, user_id) {
     console.log("Emitting reply downvote event")
     let payload = { 'type' : 'REPLY_DOWNVOTE', 'user' : user_id, 'id' : reply_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
 function emitReplyNeutralVoteEvent(reply_id, user_id) {
     console.log("Emitting reply neutral vote event")
     let payload = { 'type' : 'REPLY_NEUTRALVOTE', 'user' : user_id, 'id' : reply_id}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
 }
-function emitReplySubmitEvent(content, user_id, message_id) {
+function emitReplySubmitEvent(content, user_id, message_id, ray_id) {
     console.log("Emitting reply submit event")
-    let payload = { 'type' : 'REPLY_SUBMIT', 'message' : message_id, 'user' : user_id, 'content' : content}
-    channel.publish('frontend_events', user_id+'', Buffer.from(JSON.stringify(payload)))
+    let payload = { 'type' : 'REPLY_SUBMIT', 'message' : message_id, 'user' : user_id, 'content' : content, 'ray_id': ray_id}
 }
 
 async function populate_db() {

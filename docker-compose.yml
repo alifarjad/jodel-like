@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  rabbit:
+    container_name: rabbitqueue
+    image: "zauberpony/rabbitmq-x-consistent-hash"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  postgresnode:
+    environment:
+      - POSTGRES_USER=express
+      - POSTGRES_PASSWORD=express
+      - POSTGRES_DB=express
+    container_name: postgresnode
+    image: "postgres:15.0"
+    ports:
+      - "5432:5432"
+  backend:
+    container_name: nodeapibackend
+    build: ./backend
+    image: nodeapibackend:v1
+    ports:
+      - "5002:5002"
+    depends_on:
+      - "postgresnode"
+      - "rabbit"
+
+#cd nodeapi
+#docker compose build
+#docker compose up --attach backend

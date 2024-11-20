@@ -1,6 +1,6 @@
-# CS-E4770 - Project 1
-## Grader
-The project is to develop a Jamstack-like web application like Jodel
+# Message board
+## Message board
+The project is to develop a Jamstack-like web application like Jodel or Reddit
 
 
 
@@ -92,9 +92,3 @@ For message page run `k6 -e APP_URL=http://<ADDRESS_FROM_COMMAND_ABOVE>/ run mes
 | ----------- | --- |
 | / | 100 |
 | /message | 100 |
-
-
-## Conclusions and future improvements
-As shown by the data, Nginx is serving static files at incredibly high speeds, mostly thanks to the Single-page application that allows caching. 
-On the other hand, exercises submissions are far slower, mostly because the requests need to be redirected from Nginx to Express, and then each exercise is submitted and the container run seperately.
-The containers can be parallelized, if required and is kept as a future scope of the project. 

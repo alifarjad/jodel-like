@@ -1,6 +1,5 @@
 # Message board
-## Message board
-The project is to develop a Jamstack-like web application like Jodel or Reddit
+The project is to develop a web application like Jodel or Reddit
 
 ![](https://github.com/alifarjad/jodel-like/blob/main/demo2.gif)
 

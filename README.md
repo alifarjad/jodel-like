@@ -2,7 +2,7 @@
 ## Message board
 The project is to develop a Jamstack-like web application like Jodel or Reddit
 
-
+![](https://github.com/alifarjad/jodel-like/blob/main/demo1.gif)
 
 The whole application features:
 - A main page wich indicates the current user, the list of the 20 most recent messages, a form to post a message
@@ -15,6 +15,8 @@ In addition to this, the application also features:
 - Infinite scroll once the user gets to the bottom of the page (for both messages and replies), the page will try to fetch more messages in any case if the current items displayed is less than 20
 - Lighthouse Performance score of 100 for both main and message page
 - Automatic scaling based on load by kubernetes
+
+![](https://github.com/alifarjad/jodel-like/blob/main/demo2.gif)
 
 The project is composed of:
 - PostgreSQL : Database to store replies, messages, votes.
